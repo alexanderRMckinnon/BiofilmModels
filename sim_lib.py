@@ -7,10 +7,10 @@ from IPython.display import Image
 
 class SpatiotemporalModel:
     def __init__(self):
-        self.dpi = 100
-        self.fps = 10
-        self.fig_dim = [16/2, 9/2]
-        self.filename = 'simulation.gif'
+        self.dpi = 100 # Dots Per square Inch, sharpness of gif
+        self.fps = 10 # Frame rate of gif, effects gif length but not simulation length
+        self.fig_dim = np.array([16, 9])/2 # Dimensions of gif, keep the ratio but change the scaling factor
+        self.filename = 'simulation.gif' # Name of gif file
         
         self.t_max = 5
         self.gif_t_max = 2
@@ -20,7 +20,7 @@ class SpatiotemporalModel:
         self.dx = 10/1000
         self.CLF = 1
         self.dt = self.CLF*(self.dx**2)/(2*abs(1))
-        
+        self.dt = self.t_max
         
 #         self.dx = 0.01
 #         self.dt = 0.9* self.dx**2/2
@@ -61,8 +61,8 @@ class OneDimDiffusion(SpatiotemporalModel):
         self.Y = np.exp(-self.X**2)
         
     def update(self):
-#         for _ in range(int(0.1/(0.9*self.dt))):
-        for _ in range(100):
+        for _ in range(int(0.1/(0.9*self.dt))):
+#         for _ in range(100):
             self.t += self.dt
             self._update()
     def _update(self):
