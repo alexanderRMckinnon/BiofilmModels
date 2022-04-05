@@ -7,20 +7,22 @@ from IPython.display import Image
 
 class SpatiotemporalModel:
     def __init__(self):
+        self.frames = 50
+        self.t_max = 5
+        self.gif_t_max = 5
+        
         self.dpi = 100 # Dots Per square Inch, sharpness of gif
-        self.fps = 10 # Frame rate of gif, effects gif length but not simulation length
+        self.fps = int(self.frames/self.gif_t_max) # Frame rate of gif, effects gif length but not simulation length
         self.fig_dim = np.array([16, 9])/2 # Dimensions of gif, keep the ratio but change the scaling factor
         self.filename = 'simulation.gif' # Name of gif file
         
-        self.t_max = 5
-        self.gif_t_max = 2
 #         self.frames = self.gif_t_max*self.fps
-        self.frames = 10
+
         
         self.dx = 10/1000
         self.CLF = 1
         self.dt = self.CLF*(self.dx**2)/(2*abs(1))
-        self.dt = self.t_max
+#         self.dt = self.t_max
         
 #         self.dx = 0.01
 #         self.dt = 0.9* self.dx**2/2
@@ -37,12 +39,13 @@ class SpatiotemporalModel:
         raise NotImplementedError()
     def plot_simulation(self):
         fig, ax = self.initialise_figure()
-        
         def step(t):
-            self.update()
-            self.draw(ax)
-        
-        anim = animation.FuncAnimation(fig, step, frames = np.arange(self.frames))        
+            if t:
+                self.update()
+                self.draw(ax)
+            else:
+                self.draw(ax)
+        anim = animation.FuncAnimation(fig, step, frames = np.arange(self.frames+1), interval = 0)        
         anim.save(filename = self.filename, fps = self.fps, dpi = self.dpi)
         plt.close()
         
@@ -61,8 +64,8 @@ class OneDimDiffusion(SpatiotemporalModel):
         self.Y = np.exp(-self.X**2)
         
     def update(self):
-        for _ in range(int(0.1/(0.9*self.dt))):
-#         for _ in range(100):
+#         for _ in range(int(0.1/(0.9*self.dt))):
+        for _ in range(int(self.t_max/(self.frames*self.dt))):
             self.t += self.dt
             self._update()
     def _update(self):
