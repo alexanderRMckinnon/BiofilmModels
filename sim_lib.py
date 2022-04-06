@@ -70,12 +70,11 @@ class SpatiotemporalModel:
                 count = count + 1
         self.draw_line_plot_final(ax)
             
-
-            
+        
 class TemporalFitzHuNagReaction(SpatiotemporalModel):
     def __init__(self):
         SpatiotemporalModel.__init__(self, in_filename="Temporal_FitzHuNag.gif", in_t_max=5, in_gif_t_max=2)
-        self.dt = 0.001
+        self.dt = 0.0001
         self.t = 0
         self.v, self.w = 0.1, 0.7
         self.X, self.Y_v, self.Y_w = [], [], []
@@ -92,7 +91,6 @@ class TemporalFitzHuNagReaction(SpatiotemporalModel):
         self.v += self.dt * self.v_Reaction(self.v, self.w, self.alpha) 
         self.w += self.dt * self.w_Reaction(self.v, self.w, self.beta)
     def draw(self, ax):
-        print(self.t)
         ax.clear()
         
         self.X.append(self.t)
@@ -111,6 +109,23 @@ class TemporalFitzHuNagReaction(SpatiotemporalModel):
         self.t = 0
         self.v, self.w = 0.1, 0.7
         self.X, self.Y_v, self.Y_w = [], [], []
+
+        
+class OneDimFitzHuNagReaction(TemporalFitzHuNagReaction):
+    def __init__(self):
+        TemporalFitzHuNagReaction.__init__(self)
+        self.Da, self.Db = 1, 100
+        self.dx = 1
+    def _update(self):
+        self.v += self.dt*(self.Da*laplacian1D(self.v, self.dx) + self.v_Reaction(self.v, self.w, self.alpha))
+        self.w += self.dt*(self.Db*laplacian1D(self.w, self.dx) + self.w_Reaction(self.v, self.w, self.beta))
+    def draw(self, ax):
+        ax.clear()
+        ax.plot(self.v, color="r", label="v")
+        ax.plot(self.w, color="b", label="w")
+        ax.legend()
+        ax.set_ylim(-1,1)
+        ax.set_title("t = {:.1f}".format(self.t))
         
             
 class OneDimDiffusion(SpatiotemporalModel):
