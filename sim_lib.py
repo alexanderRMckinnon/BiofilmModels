@@ -69,7 +69,7 @@ class SpatiotemporalModel:
                 self.draw_line_plot(ax, cmap[count])
                 count = count + 1
         self.draw_line_plot_final(ax)
-            
+       
         
 class TemporalFitzHuNagReaction(SpatiotemporalModel):
     def __init__(self):
@@ -116,6 +116,9 @@ class OneDimFitzHuNagReaction(TemporalFitzHuNagReaction):
         TemporalFitzHuNagReaction.__init__(self)
         self.Da, self.Db = 1, 100
         self.dx = 1
+        self.v, self.w =  np.random.normal(loc=0, scale=0.05, size=1000), 
+    np.random.normal(loc=0, scale=0.05, size=1000)
+        self.dt = 0.1
     def _update(self):
         self.v += self.dt*(self.Da*laplacian1D(self.v, self.dx) + self.v_Reaction(self.v, self.w, self.alpha))
         self.w += self.dt*(self.Db*laplacian1D(self.w, self.dx) + self.w_Reaction(self.v, self.w, self.beta))
@@ -126,6 +129,9 @@ class OneDimFitzHuNagReaction(TemporalFitzHuNagReaction):
         ax.legend()
         ax.set_ylim(-1,1)
         ax.set_title("t = {:.1f}".format(self.t))
+    def reset_sim(self, Y):
+        self.t = 0
+        self.v, self.w = np.random.normal(loc=0, scale=0.05, size=1000),  np.random.normal(loc=0, scale=0.05, size=1000)
         
             
 class OneDimDiffusion(SpatiotemporalModel):
