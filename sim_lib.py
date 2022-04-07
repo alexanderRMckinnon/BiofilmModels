@@ -70,6 +70,46 @@ class SpatiotemporalModel:
                 count = count + 1
         self.draw_line_plot_final(ax)
        
+    
+    
+class OneDimFitzHuNagReaction(SpatiotemporalModel):
+    def __init__(self):
+        SpatiotemporalModel.__init__(self, in_filename="1DFitzHuNagReaction.gif", in_t_max=30, in_gif_t_max=15)
+        self.num_x_points = 100
+        self.Da, self.Db = 1, 100
+        self.dx = 1
+        self.v, self.w =  np.random.normal(loc=0, scale=0.05, size=self.num_x_points), np.random.normal(loc=0, scale=0.05, size=self.num_x_points)
+        self.alpha, self.beta = -0.005, 10
+        self.dt = 0.001
+    def v_Reaction(self, v, w, alpha):
+        return v - v**3 - w + alpha
+    def w_Reaction(self, v, w, beta):
+        return (v - w)*beta
+    def update(self):
+        for _ in range(int(self.t_max/((self.frames+1)*self.dt))):
+            self.t += self.dt
+            self._update()
+    def _update(self):
+        self.v += self.dt*(self.Da*laplacian1D(self.v, self.dx) + self.v_Reaction(self.v, self.w, self.alpha))
+        self.w += self.dt*(self.Db*laplacian1D(self.w, self.dx) + self.w_Reaction(self.v, self.w, self.beta))
+    def draw(self, ax):
+        ax.clear()
+        ax.plot(self.v, color="r", label="v")
+        ax.plot(self.w, color="b", label="w")
+        ax.legend()
+        ax.set_ylim(-1,1)
+        ax.set_xlim(0,100)
+        ax.set_title("t = {:.1f}".format(self.t))
+        ax.set_xlabel("x")
+        ax.set_ylabel("Concentration")
+        ax.get_xaxis().set_visible(False)
+    def reset_sim(self, Y):
+        self.t = 0
+        self.v, self.w = np.random.normal(loc=0, scale=0.05, size=self.num_x_points),  np.random.normal(loc=0, scale=0.05, size=self.num_x_points)        
+        
+        
+        
+        
         
 class TemporalFitzHuNagReaction(SpatiotemporalModel):
     def __init__(self):
@@ -79,12 +119,13 @@ class TemporalFitzHuNagReaction(SpatiotemporalModel):
         self.v, self.w = 0.1, 0.7
         self.X, self.Y_v, self.Y_w = [], [], []
         self.alpha, self.beta = 0.2, 5
+        self.steps = int(self.t_max/((self.frames+1)*self.dt))
     def v_Reaction(self, v, w, alpha):
         return v - v**3 - w + alpha
     def w_Reaction(self, v, w, beta):
         return (v - w)*beta
     def update(self):
-        for _ in range(int(self.t_max/((self.frames+1)*self.dt))):
+        for _ in range(self.steps):
             self.t += self.dt
             self._update()
     def _update(self):     
@@ -104,34 +145,15 @@ class TemporalFitzHuNagReaction(SpatiotemporalModel):
         ax.set_ylim(0,1)
         ax.set_xlim(0,5)
         ax.set_xlabel("t")
-        ax.set_ylabel("Concentrations")
+        ax.get_yaxis().set_visible(False)
+        ax.set_ylabel("Concentration")
     def reset_sim(self, Y):
         self.t = 0
         self.v, self.w = 0.1, 0.7
         self.X, self.Y_v, self.Y_w = [], [], []
 
         
-class OneDimFitzHuNagReaction(TemporalFitzHuNagReaction):
-    def __init__(self):
-        TemporalFitzHuNagReaction.__init__(self)
-        self.Da, self.Db = 1, 100
-        self.dx = 1
-        self.v, self.w =  np.random.normal(loc=0, scale=0.05, size=1000), 
-    np.random.normal(loc=0, scale=0.05, size=1000)
-        self.dt = 0.1
-    def _update(self):
-        self.v += self.dt*(self.Da*laplacian1D(self.v, self.dx) + self.v_Reaction(self.v, self.w, self.alpha))
-        self.w += self.dt*(self.Db*laplacian1D(self.w, self.dx) + self.w_Reaction(self.v, self.w, self.beta))
-    def draw(self, ax):
-        ax.clear()
-        ax.plot(self.v, color="r", label="v")
-        ax.plot(self.w, color="b", label="w")
-        ax.legend()
-        ax.set_ylim(-1,1)
-        ax.set_title("t = {:.1f}".format(self.t))
-    def reset_sim(self, Y):
-        self.t = 0
-        self.v, self.w = np.random.normal(loc=0, scale=0.05, size=1000),  np.random.normal(loc=0, scale=0.05, size=1000)
+
         
             
 class OneDimDiffusion(SpatiotemporalModel):
@@ -145,9 +167,9 @@ class OneDimDiffusion(SpatiotemporalModel):
         self.dt = (self.dx**2)/2
         self.Y = np.exp(-self.X**2)
         self.ylim = [0,1]
-        
+        self.steps = int(self.t_max/(self.frames*self.dt))
     def update(self):
-        for _ in range(int(self.t_max/(self.frames*self.dt))):
+        for _ in range(self.steps):
                 self.t += self.dt
                 self._update()
     def _update(self):
@@ -162,6 +184,8 @@ class OneDimDiffusion(SpatiotemporalModel):
         ax.set_xlim(-5,5)
         ax.get_xaxis().set_visible(False)
         ax.set_title("t = {:.1f}".format(self.t))
+        ax.set_xlabel("x")
+        ax.set_ylabel("Concentration")
     def draw_line_plot(self, ax, cmap):
         ax.plot(self.X,self.Y, color=cmap, label = "t={:.1f}".format(self.t))
     def draw_line_plot_final(self, ax):
