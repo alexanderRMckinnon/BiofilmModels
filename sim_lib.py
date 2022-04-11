@@ -24,12 +24,12 @@ class SpatiotemporalModel:
         raise NotImplementedError()
     def draw(self, ax):
         raise NotImplementedError()
-    def reset_sim(self):
+    def initialise(self):
         raise NotImplementedError()
         
-    def gif_simulation(self, Y=None):
+    def gif_simulation(self):
         fig, ax = self.initialise_figure()
-        self.reset_sim(Y)
+        self.initialise()
         def step(t):
             if t<5 or t>self.frames+5:
                 self.draw(ax)
@@ -43,9 +43,8 @@ class SpatiotemporalModel:
         with open(self.filename,'rb') as file:
             display(Image(file.read()))
             
-    def histogram_simulation(self, Y=None):
+    def histogram_simulation(self):
         fig, ax = self.initialise_figure()
-        self.reset_sim(Y)
         self.histogram = np.zeros([self.num_x_points, self.frames+1])
         self.histogram[:,0] = self.histogram_get_slice()
         for t in range(1, self.frames+1):
@@ -53,30 +52,156 @@ class SpatiotemporalModel:
             self.histogram[:,t] = self.histogram_get_slice()
         ax.imshow(self.histogram, cmap='Reds', interpolation='nearest', aspect='auto')
         self.histogram_draw(ax)
+        plt.savefig("histogram.jpg")
 
-    def line_plot_simulation(self, Y=None):
+    def line_plot_simulation(self):
         fig, ax = self.initialise_figure()
-        self.reset_sim(Y)
         cmap = pl.cm.Reds(np.linspace(1,0.3, self.line_frames))
         self.draw_line_plot(ax, cmap[0])
         line_plot_true = np.around(np.linspace(0, self.frames, self.line_frames)).astype(int)
         count = 1
         for t in range(1, self.frames+1):
             self.update()
-#             print(t)
             if t in line_plot_true:
-#                 print("!")
                 self.draw_line_plot(ax, cmap[count])
                 count = count + 1
         self.draw_line_plot_final(ax)
-       
+        plt.savefig("line_plot.jpg")
+     
     
+class ModelCellDeathPattern(SpatiotemporalModel):
+    def __init__(self):
+        SpatiotemporalModel.__init__(self, in_filename="ModelCellDeathPattern.gif", in_t_max=1, in_gif_t_max=1/20)
+        self.d, self.n, self.u_k, self.sigma, self.gamma = 0.01, 4, 1.5, 0.7, 0.05
+        self.num_x_points = 300
+        self.x_min = -1.5
+        self.x_max = 1.5
+        self.x_length = self.x_max - self.x_min
+        self.dx = self.x_length/self.num_x_points
+        self.u, self.du = abs(np.random.normal(loc=0, scale=0.05, size=(self.num_x_points, self.num_x_points))), self.dx
+        self.w, self.dw = abs(np.random.normal(loc=0, scale=0.05, size=(self.num_x_points, self.num_x_points))), self.dx
+        self.t = 0
+        self.dt = (self.dx**2)/2
+        self.steps = int(self.t_max/(self.frames*self.dt))
+    def update(self):
+        for _ in range(self.steps):
+                self.t += self.dt
+                self._update()
+    def _update(self):
+        plt.imshow(self.u)
+        grad_u, grad_w = grad2D(self.u, self.dx), grad2D(self.w, self.dx)
+        self.u += self.dt*( self.f(self.u) + div2D(self.D(self.w)*(grad_u - self.u*grad_w), self.dx))
+        self.w += self.g(self.u, self.w) + self.d*laplacian2D(self.w, self.dx)
+        plt.imshow(self.u)
+        
+    def f(self, u):
+        return u*(1-u)
+    def g(self, u, w):
+        return self.sigma*( ( (u/self.u_k)**self.n )/( 1 + ((u/self.u_k)**self.n) ) ) - self.gamma*w
+    def D(self, w):
+        plt.imshow(w)
+        plt.show()
+        plt.imshow(np.exp(-w))
+        plt.show()
+        return np.exp(-w)
     
+    def initialise_figure(self):
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=np.array([16, 9]))
+        return fig, ax
+    def draw(self, ax):
+        ax[0].clear()
+        ax[1].clear()
+        ax[0].get_yaxis().set_visible(False)
+        ax[1].get_yaxis().set_visible(False)
+        ax[0].get_xaxis().set_visible(False)
+        ax[1].get_xaxis().set_visible(False)
+        ax[0].imshow(self.u, cmap='Reds', interpolation='lanczos')
+        ax[1].imshow(self.w, cmap='Blues', interpolation='lanczos')
+        ax[0].grid(b=False)
+        ax[1].grid(b=False)
+        ax[0].set_title("u, t = {:.1f}".format(self.t))
+        ax[1].set_title("w, t = {:.1f}".format(self.t))
+        
+    def reset_sim(self, Y):
+        self.t = 0
+        if Y is None:
+            self.u = abs(np.random.normal(loc=0, scale=0.05, size=(self.num_x_points, self.num_x_points)))
+            self.w = abs(np.random.normal(loc=0, scale=0.05, size=(self.num_x_points, self.num_x_points)))
+        else:
+            self.u = Y    
+    
+class TwoDimFitzHuNagReaction(SpatiotemporalModel):
+    def __init__(self):
+        SpatiotemporalModel.__init__(self, in_filename="2DFitzHuNagReaction.gif", in_t_max=30, in_gif_t_max=15)
+        self.num_x_points, self.num_y_points = 100, 100
+        self.v, self.w = np.random.normal(loc=0, scale=0.05, size=(self.num_x_points, self.num_y_points)), np.random.normal(loc=0, scale=0.05, size=(self.num_x_points, self.num_y_points))
+        self.D_v, self.D_w, self.a, self.b = 1, 100, -0.005, 10
+        self.dx, self.dt = 1, 0.001
+        self.steps = int(self.t_max/((self.frames+1)*self.dt))
+    def v_Reaction(self, v, w, alpha):
+        return v - v**3 - w + alpha
+    def w_Reaction(self, v, w, beta):
+        return (v - w)*beta
+    def update(self):
+        for _ in range(self.steps):
+            self.t += self.dt
+            self._update()
+    def _update(self):
+        self.v += self.dt*(self.D_v*laplacian2D(self.v, self.dx) + self.v_Reaction(self.v, self.w, self.a))
+        self.w += self.dt*(self.D_w*laplacian2D(self.w, self.dx) + self.w_Reaction(self.v, self.w, self.b))
+    def reset_sim(self, Y):
+        self.t = 0
+        self.v, self.w = np.random.normal(loc=0, scale=0.05, size=(self.num_x_points, self.num_y_points)), np.random.normal(loc=0, scale=0.05, size=(self.num_x_points, self.num_y_points))
+    def initialise_figure(self):
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=np.array([16, 9]))
+        return fig, ax
+    def draw(self, ax):
+        ax[0].clear()
+        ax[1].clear()
+        ax[0].get_yaxis().set_visible(False)
+        ax[1].get_yaxis().set_visible(False)
+        ax[0].get_xaxis().set_visible(False)
+        ax[1].get_xaxis().set_visible(False)
+        ax[0].imshow(self.v, cmap='Reds', interpolation='lanczos')
+        ax[1].imshow(self.w, cmap='Blues', interpolation='lanczos')
+        ax[0].grid(b=False)
+        ax[1].grid(b=False)
+        ax[0].set_title("v, t = {:.1f}".format(self.t))
+        ax[1].set_title("w, t = {:.1f}".format(self.t))
+    
+class ExtendedTwoDimFitzHuNagReaction(TwoDimFitzHuNagReaction):
+    def __init__(self, sim_num):
+        TwoDimFitzHuNagReaction.__init__(self)
+        parameters = [
+            [0.16, 0.08, 0.035, 0.065], 
+            [0.14, 0.06, 0.035, 0.065], 
+            [0.16, 0.08, 0.06, 0.062], 
+            [0.19, 0.05, 0.06, 0.062], 
+            [0.16, 0.08, 0.02, 0.055], 
+            [0.16, 0.08, 0.05, 0.065], 
+            [0.16, 0.08, 0.054, 0.063], 
+            [0.16, 0.08, 0.035, 0.06]
+        ]
+        self.D_v, self.D_w, self.a, self.b = parameters[sim_num][0], parameters[sim_num][1], parameters[sim_num][2], parameters[sim_num][3]
+        self.t_max = 20000
+        self.gif_t_max = 60
+        self.fps = 2
+        self.frames = int(self.fps*self.gif_t_max)
+        self.steps = int(self.t_max/((self.frames+1)*self.dt))
+    def v_Reaction(self, v, w, a):
+        return - v*w*w + a*(1-v)
+    def w_Reaction(self, v, w, a, b):
+        return v*w*w - (a+b)*w
+    def _update(self):
+        self.v += self.dt*(self.D_v*laplacian2D(self.v, self.dx) + self.v_Reaction(self.v, self.w, self.a))
+        self.w += self.dt*(self.D_w*laplacian2D(self.w, self.dx) + self.w_Reaction(self.v, self.w, self.a, self.b))
+        
+        
 class OneDimFitzHuNagReaction(SpatiotemporalModel):
     def __init__(self):
         SpatiotemporalModel.__init__(self, in_filename="1DFitzHuNagReaction.gif", in_t_max=30, in_gif_t_max=15)
         self.num_x_points = 100
-        self.Da, self.Db = 1, 100
+        self.D_v, self.D_w = 1, 100
         self.dx = 1
         self.v, self.w =  np.random.normal(loc=0, scale=0.05, size=self.num_x_points), np.random.normal(loc=0, scale=0.05, size=self.num_x_points)
         self.alpha, self.beta = -0.005, 10
@@ -90,8 +215,8 @@ class OneDimFitzHuNagReaction(SpatiotemporalModel):
             self.t += self.dt
             self._update()
     def _update(self):
-        self.v += self.dt*(self.Da*laplacian1D(self.v, self.dx) + self.v_Reaction(self.v, self.w, self.alpha))
-        self.w += self.dt*(self.Db*laplacian1D(self.w, self.dx) + self.w_Reaction(self.v, self.w, self.beta))
+        self.v += self.dt*(self.D_v*laplacian1D(self.v, self.dx) + self.v_Reaction(self.v, self.w, self.alpha))
+        self.w += self.dt*(self.D_w*laplacian1D(self.w, self.dx) + self.w_Reaction(self.v, self.w, self.beta))
     def draw(self, ax):
         ax.clear()
         ax.plot(self.v, color="r", label="v")
@@ -212,5 +337,13 @@ class OneDimDiffusion(SpatiotemporalModel):
         ax.set_title("Histogram")
     def get_equation(self):
         display(Latex(r'$$\frac{\partial Y}{\partial t} = D \frac{\partial^2 Y}{\partial^2 x}$$'))
+
 def laplacian1D(Y, dx):
     return (-2*Y + np.roll(Y,1,axis=0) + np.roll(Y,-1,axis=0)) / (dx ** 2)
+def laplacian2D(Y, dx):
+    return (-4*Y + np.roll(Y,1,axis=0) + np.roll(Y,-1,axis=0) + np.roll(Y,+1,axis=1) + np.roll(Y,-1,axis=1)
+    ) / (dx ** 2)
+def grad2D(Y, dx):
+    return np.array([ (np.roll(Y, 1, axis=0)-Y)/dx, (np.roll(Y, 1, axis=1)-Y)/dx ])
+def div2D(Y, dx):
+    return (np.roll(Y[0], 1, axis=0)-Y[0])/dx + (np.roll(Y[1], 1, axis=1)-Y[1])/dx
